@@ -1,0 +1,21 @@
+# Copy to application-local.properties (kept out of git) and fill in.
+
+# ScalarDB Native JDBC: one URL per database. The PostgreSQL URL with "scalardb-native:" after "jdbc:".
+app.datasource.customer.jdbc-url=jdbc:scalardb-native:postgresql://<customer-db-host>:5432/db_customer
+app.datasource.customer.username=<user>
+app.datasource.customer.password=<password>
+
+app.datasource.inventory.jdbc-url=jdbc:scalardb-native:postgresql://<inventory-db-host>:5432/db_inventory
+app.datasource.inventory.username=<user>
+app.datasource.inventory.password=<password>
+
+app.datasource.ordering.jdbc-url=jdbc:scalardb-native:postgresql://<ordering-db-host>:5432/db_ordering
+app.datasource.ordering.username=<user>
+app.datasource.ordering.password=<password>
+
+# The PostgreSQL Frontend of ScalarDB Cluster (scalar.db.postgres.port, 5439 by default). The database
+# name in the URL is a ScalarDB namespace; the SQL names every table with its namespace, so any of the
+# three works. User and password: those of the Cluster (any, if the Cluster has no authentication).
+app.datasource.pgfe.jdbc-url=jdbc:postgresql://<cluster-host>:5439/ordering
+app.datasource.pgfe.username=<user>
+app.datasource.pgfe.password=<password>

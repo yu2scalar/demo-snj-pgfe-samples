@@ -1,0 +1,6 @@
+{
+  "customer.customers": { "transaction": true },
+  "inventory.items": { "transaction": true },
+  "ordering.orders": { "transaction": true },
+  "ordering.statements": { "transaction": true }
+}
