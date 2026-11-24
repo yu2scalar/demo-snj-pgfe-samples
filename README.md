@@ -96,44 +96,123 @@ cp setup/db.env.example setup/db.env && chmod 600 setup/db.env   # then fill in 
 setup/setup-db.sh
 ```
 
-`setup-db.sh` runs three steps:
+`setup-db.sh` makes the tables (`schema/<db>.sql`), imports them into ScalarDB with the Schema Loader,
+and runs SNJ's setup in each database. It ends with `setup-db OK`. **It connects only to the three
+databases. ScalarDB Cluster is not needed for this step.** You can run it again at any time.
 
-1. Creates the tables: `schema/<db>.sql` in each database, with plain PostgreSQL DDL.
-2. Imports them into ScalarDB with the Schema Loader, and creates the coordinator table in
-   `db_ordering`. The Schema Loader uses the same storages and namespace mapping as the Cluster
-   (step 3). Each database then holds a `scalardb.metadata` with its own tables.
-3. Runs SNJ's setup and check in each database. The setup adds an in-flight index and a read view per
-   table.
-
-It ends with `setup-db OK`. The Schema Loader and `scalardb-native-tools` 3.20.0 are downloaded into
-`.tools/` the first time.
+What each step does, the settings, the output and how to do it by hand: [setup/README.md](setup/README.md).
 
 After this, write to these tables only through SNJ or ScalarDB. Plain `psql` would bypass both, so
 use it only to read.
 
 ## 3. Add the databases to ScalarDB Cluster, and restart it
 
-The Cluster has to know the three databases as storages of ScalarDB's multi-storage, with each
-namespace mapped to its database. Add the lines of
-[`cluster/multi-storage.properties.example`](cluster/multi-storage.properties.example) to the Cluster
-node's properties. With Helm, these go in `scalardbCluster.scalardbClusterNodeProperties` in the
-custom values. Then restart the Cluster (with Helm, `helm upgrade` with the changed values). A
-running Cluster does not pick up new storages.
+The Cluster has to know the three databases. This takes two additions to the Cluster node's
+properties:
+
+- **storages:** the three databases, as storages of ScalarDB's multi-storage.
+- **namespaces:** each namespace mapped to its database.
+
+The Cluster also needs three more settings for this sample (C to E below). All the lines are in
+[`cluster/multi-storage.properties.example`](cluster/multi-storage.properties.example).
+
+### A. Storages
+
+```properties
+scalar.db.storage=multi-storage
+scalar.db.multi_storage.storages=customer,inventory,ordering
+
+scalar.db.multi_storage.storages.customer.storage=jdbc
+scalar.db.multi_storage.storages.customer.contact_points=jdbc:postgresql://<customer-db-host>:5432/db_customer
+scalar.db.multi_storage.storages.customer.username=<user>
+scalar.db.multi_storage.storages.customer.password=${env:DB_PASSWORD_CUSTOMER}
+# ... the same four lines for inventory and ordering
+```
+
+`${env:DB_PASSWORD_CUSTOMER}` reads an environment variable of the Cluster node. With Helm, put the
+three passwords in a Kubernetes Secret, with the keys `DB_PASSWORD_CUSTOMER`, `DB_PASSWORD_INVENTORY`
+and `DB_PASSWORD_ORDERING`. Then name the Secret in `scalardbCluster.secretName`. The chart passes
+each key of the Secret to the node as an environment variable.
+
+### B. Namespaces
+
+```properties
+scalar.db.multi_storage.namespace_mapping=customer:customer,inventory:inventory,ordering:ordering,coordinator:ordering
+scalar.db.multi_storage.default_storage=ordering
+```
+
+`coordinator:ordering` puts ScalarDB's coordinator table in `db_ordering`. Step 2 made it there with the
+same mapping.
+
+### C. Isolation level
+
+The settings when `scalar.db.consensus_commit.isolation_level` is `READ_COMMITTED` (this sample) are
+as follows:
+
+```properties
+scalar.db.transaction_manager=consensus-commit
+scalar.db.consensus_commit.isolation_level=READ_COMMITTED
+scalar.db.multi_storage.storages.customer.jdbc.isolation_level=REPEATABLE_READ
+scalar.db.multi_storage.storages.inventory.jdbc.isolation_level=REPEATABLE_READ
+scalar.db.multi_storage.storages.ordering.jdbc.isolation_level=REPEATABLE_READ
+```
+
+- `scalar.db.consensus_commit.isolation_level` is the isolation level of ScalarDB's transactions. SNJ
+  requires it to match the level of the driver's connections (READ COMMITTED in this sample). It
+  applies to the whole Cluster, so it applies to other applications on the same Cluster too.
+- `jdbc.isolation_level` is the isolation level of ScalarDB's own connections to each database. Its
+  value depends on the isolation level above, and on the database. For other isolation levels, see
+  [Isolation levels](https://github.com/scalar-labs/scalardb-native-jdbc/blob/main/docs/transactions.md#isolation-levels)
+  in SNJ's documentation.
+- It is set for each storage, so that it does not change the Cluster's other storages.
+
+### D. Cross-partition scans
+
+```properties
+scalar.db.multi_storage.storages.customer.cross_partition_scan.enabled=true
+scalar.db.multi_storage.storages.customer.cross_partition_scan.filtering.enabled=true
+scalar.db.multi_storage.storages.customer.cross_partition_scan.ordering.enabled=true
+# ... the same three lines for inventory and ordering
+```
+
+The sample reads orders by customer and order lines by order through the PostgreSQL Frontend. These
+reads do not give the whole primary key. Without these lines, they fail with
+`DB-CORE-10008: Cross-partition scan filtering is not enabled`.
+
+### E. Where to put the lines, and restart
+
+- **With Helm:** put the lines in `scalardbCluster.scalardbClusterNodeProperties` in the custom
+  values, and run `helm upgrade` with the changed values.
+- **Without Helm:** put them in the node's `scalardb-cluster-node.properties`, and restart the node.
+
+A running Cluster does not pick up new storages, so the restart is needed.
+
+How to add the lines depends on the Cluster's current settings:
 
 - **If the Cluster already uses multi-storage:**
   - add `customer,inventory,ordering` to its `scalar.db.multi_storage.storages`;
-  - add the three mappings to its `namespace_mapping`;
+  - add the three mappings (not `coordinator`) to its `namespace_mapping`;
   - keep its own `default_storage` and its coordinator.
-- **If the Cluster uses one storage:**
+- **If the Cluster uses one storage (`scalar.db.storage=jdbc`):**
   - switch it to multi-storage;
-  - keep the existing database as one of the storages;
-  - map its namespaces and the coordinator to it.
-- **What the example also sets:**
-  - `jdbc.isolation_level=REPEATABLE_READ` for the three storages (SNJ requires it).
-  - Cross-partition scans with filtering and ordering, for the three storages (the sample reads orders
-    by customer).
-  - `scalar.db.consensus_commit.isolation_level=READ_COMMITTED`. This setting applies to the whole
-    Cluster.
+  - keep the existing database as one more storage;
+  - map its namespaces and the coordinator to it, and make it the `default_storage`.
+
+The Cluster also needs the PostgreSQL Frontend on (`scalar.db.postgres.enabled=true`), as for any use
+of it.
+
+### Check
+
+After the restart, connect to the PostgreSQL Frontend and read one table in each database:
+
+```sh
+psql -h <cluster-host> -p 5439 -U <user> -d ordering -c "SELECT count(*) FROM customer.customers"
+psql -h <cluster-host> -p 5439 -U <user> -d ordering -c "SELECT count(*) FROM inventory.items"
+psql -h <cluster-host> -p 5439 -U <user> -d ordering -c "SELECT count(*) FROM ordering.orders"
+```
+
+Each prints a count (0 at first). The user and password are those of the Cluster: any, if the
+Cluster has no authentication.
 
 ## 4. Run the sample
 

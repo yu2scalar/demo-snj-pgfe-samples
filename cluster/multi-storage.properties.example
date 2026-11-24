@@ -33,7 +33,11 @@ scalar.db.multi_storage.storages.ordering.contact_points=jdbc:postgresql://<orde
 scalar.db.multi_storage.storages.ordering.username=<user>
 scalar.db.multi_storage.storages.ordering.password=${env:DB_PASSWORD_ORDERING}
 
-# ScalarDB Native JDBC requires REPEATABLE_READ for ScalarDB's own connections to these databases.
+# The isolation level of ScalarDB's own connections to each database. With
+# scalar.db.consensus_commit.isolation_level=READ_COMMITTED (below), it is REPEATABLE_READ on PostgreSQL.
+# The value depends on the isolation level and on the database: see "Isolation levels" in ScalarDB Native
+# JDBC's docs, https://github.com/scalar-labs/scalardb-native-jdbc/blob/main/docs/transactions.md#isolation-levels
+# It is set for each storage, so that it does not change the Cluster's other storages.
 scalar.db.multi_storage.storages.customer.jdbc.isolation_level=REPEATABLE_READ
 scalar.db.multi_storage.storages.inventory.jdbc.isolation_level=REPEATABLE_READ
 scalar.db.multi_storage.storages.ordering.jdbc.isolation_level=REPEATABLE_READ
@@ -54,6 +58,7 @@ scalar.db.multi_storage.namespace_mapping=customer:customer,inventory:inventory,
 scalar.db.multi_storage.default_storage=ordering
 
 # ScalarDB's transactions in READ COMMITTED, the level the sample's connections use. ScalarDB Native
-# JDBC requires the same level on both sides. This setting is for the whole Cluster.
+# JDBC requires the same level on both sides. This setting is for the whole Cluster, so it applies to
+# other applications on the same Cluster too. If you change it, change jdbc.isolation_level above to match.
 scalar.db.transaction_manager=consensus-commit
 scalar.db.consensus_commit.isolation_level=READ_COMMITTED
