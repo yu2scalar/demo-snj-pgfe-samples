@@ -234,6 +234,11 @@ chmod 600 src/main/resources/application-local.properties   # then fill in the f
 At start-up, the sample connects through each DataSource and logs what each one reached. The API
 listens on port 8080; Swagger UI is at `http://localhost:8080/swagger-ui.html`.
 
+If a DataSource cannot connect, the sample stops at start-up. For example, `Connection to
+<cluster-host>:5439 refused` means that the PostgreSQL Frontend cannot be reached. Check that the
+Cluster runs and that its port 5439 is exposed: on minikube, `minikube tunnel` must keep running. Then
+run the psql lines of [Check](#check) again.
+
 ```sh
 B=http://localhost:8080
 # one database (SNJ)
