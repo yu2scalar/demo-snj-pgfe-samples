@@ -10,12 +10,14 @@ Cluster does not have to be running, and it does not have to know the databases 
 
 | Step | Tool | What it makes |
 |---|---|---|
-| 1. Create the tables | `psql` | the tables of [`schema/<db>.sql`](../schema), with plain PostgreSQL DDL |
+| 1. Create the tables, and put in the sample data | `psql` | the tables of [`schema/<db>.sql`](../schema), with plain PostgreSQL DDL; the rows of [`schema/seed/<db>.sql`](../schema/seed) |
 | 2. Import them into ScalarDB, and make the coordinator table | ScalarDB Schema Loader | `scalardb.metadata` in each database, with that database's tables; `coordinator.state` in `db_ordering` |
 | 3. Set them up for ScalarDB Native JDBC (SNJ), and check | `scalardb-native-tools` | an in-flight index and a read view `rc_<table>` per table |
 
 The tables are ScalarDB tables. After step 3, write to them only through SNJ or ScalarDB. Plain `psql`
 would bypass both, so use it only to read.
+
+[`drop-db.sh`](#starting-again-drop-dbsh) does the reverse: it drops the tables and their rows.
 
 ## What you need
 
@@ -58,10 +60,24 @@ setup-db OK. Next: add the databases to ScalarDB Cluster and restart it (README.
 
 ## Each step
 
-### 1. Create the tables
+### 1. Create the tables, and put in the sample data
 
 The script runs `schema/customer.sql` in `db_customer`, and does the same for the other two. The DDL
 uses `CREATE ... IF NOT EXISTS`, so a table that exists is kept as it is.
+
+Then it puts in the sample data, with plain `psql`, before the tables are imported into ScalarDB:
+
+| Database | Rows |
+|---|---|
+| `db_customer` | customers 1 `alice` (credit limit 100000), 2 `bob` (50000), 3 `carol` (10000) |
+| `db_inventory` | items 1 `pen` (price 100, stock 100), 2 `notebook` (300, 50), 3 `eraser` (80, 200), 4 `ruler` (150, 30), 5 `stapler` (900, 10) |
+
+- There are no orders. Place them through the API.
+- The data goes into a database only when its tables are not imported into ScalarDB yet. On a second
+  run, the script prints `sample data skipped (... is already imported into ScalarDB)`, because a
+  `psql` insert into an imported table would bypass SNJ and ScalarDB.
+- `SEED=0 setup/setup-db.sh` leaves the data out.
+- IDs 901 and 902 are left for [`local/try.sh`](../local/try.sh).
 
 ### 2. Import into ScalarDB, and make the coordinator table
 
@@ -117,7 +133,10 @@ ScalarDB transactions may write customer.customers from <date> <time>, or after 
 customer.customers: set up, no rows stuck
 ```
 
-- `backfill skipped` is fine here, because the tables are new and empty.
+- `backfill skipped`: the sample data was written before the import, so its ScalarDB metadata columns
+  are empty. SNJ and ScalarDB read such rows as committed, so this is fine here. The sample's rows were
+  read and updated through both SNJ (add-stock) and the PostgreSQL Frontend (orders, cancel) in
+  testing.
 - The time on the third line is 60 seconds after the setup. It matters only when applications that use
   the driver already run on the database. See [SNJ_NO_WAIT=0](#adding-a-table-while-applications-run).
 - `set up, no rows stuck` is the result of `check`. You get one line per table.
@@ -139,7 +158,29 @@ setup-db OK. ...
 ```
 
 `DB-CORE-10052` here only means that the table was imported before. The script imports one table at a
-time, so that one already imported does not stop the others.
+time, so that one already imported does not stop the others. The sample data is skipped on a second
+run.
+
+## Starting again: drop-db.sh
+
+```sh
+setup/drop-db.sh          # asks first; setup/drop-db.sh --yes does not ask
+setup/setup-db.sh
+```
+
+`drop-db.sh` uses the same `setup/db.env`. **It drops the sample's tables with all their rows**, and
+keeps the databases:
+
+1. `scalardb-native-tools teardown` for each table: drops the read view and the in-flight index. On
+   PostgreSQL the view depends on the table, so this comes first.
+2. The Schema Loader drops the tables and the coordinator table. The schema it needs is built from
+   `scalardb.metadata`.
+
+It prints `drop-db OK`. A table that is not in ScalarDB is skipped, so it can be run again.
+
+A running ScalarDB Cluster keeps the tables' metadata in its cache. After `setup-db.sh` makes the
+tables again, restart the Cluster. With Helm, restart the node's deployment, for example
+`kubectl rollout restart deployment/scalardb-cluster-node` (the name depends on the Helm release).
 
 ## Adding a table while applications run
 
@@ -179,8 +220,9 @@ These commands do the same as the script. Run them from the root of the reposito
 - `scalardb-native-tools`: [ScalarDB Native JDBC v3.20.0](https://github.com/scalar-labs/scalardb-native-jdbc/releases/tag/v3.20.0)
 
 ```sh
-# 1. the tables (and the same for inventory and ordering)
+# 1. the tables (and the same for inventory and ordering), and the sample data (customer and inventory)
 psql -h <host> -p <port> -U <user> -d db_customer -f schema/customer.sql
+psql -h <host> -p <port> -U <user> -d db_customer -f schema/seed/customer.sql
 
 # 2. write the settings of step 2 above to schema-loader.properties (chmod 600, it holds the password)
 echo '{}' > /tmp/empty.json

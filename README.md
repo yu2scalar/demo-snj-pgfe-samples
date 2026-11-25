@@ -96,9 +96,18 @@ cp setup/db.env.example setup/db.env && chmod 600 setup/db.env   # then fill in 
 setup/setup-db.sh
 ```
 
-`setup-db.sh` makes the tables (`schema/<db>.sql`), imports them into ScalarDB with the Schema Loader,
-and runs SNJ's setup in each database. It ends with `setup-db OK`. **It connects only to the three
-databases. ScalarDB Cluster is not needed for this step.** You can run it again at any time.
+`setup-db.sh` makes the tables (`schema/<db>.sql`), puts in some sample data, imports the tables into
+ScalarDB with the Schema Loader, and runs SNJ's setup in each database. It ends with `setup-db OK`.
+**It connects only to the three databases. ScalarDB Cluster is not needed for this step.** You can run
+it again at any time.
+
+The sample data: customers 1 to 3 (`alice`, `bob`, `carol`) and items 1 to 5 (`pen`, `notebook`,
+`eraser`, `ruler`, `stapler`), with no orders. It goes in only the first time, before the tables are
+imported. `SEED=0 setup/setup-db.sh` leaves it out.
+
+To start again from empty tables, run `setup/drop-db.sh`. It drops the tables and their rows, and the
+databases are kept. Then run `setup-db.sh` again, and restart ScalarDB Cluster, which keeps the old
+tables' metadata in its cache.
 
 What each step does, the settings, the output and how to do it by hand: [setup/README.md](setup/README.md).
 
@@ -228,10 +237,8 @@ listens on port 8080; Swagger UI is at `http://localhost:8080/swagger-ui.html`.
 ```sh
 B=http://localhost:8080
 # one database (SNJ)
-curl -s -X POST $B/customer-customers -H 'Content-Type: application/json' \
-  -d '{"customer_id":1,"name":"alice","credit_limit":100000,"credit_total":0}'
-curl -s -X POST $B/inventory-items -H 'Content-Type: application/json' \
-  -d '{"item_id":1,"name":"pen","price":100,"stock":10}'
+curl -s $B/customer-customers/1          # alice, from the sample data
+curl -s $B/inventory-items/1             # pen
 curl -s -X POST "$B/inventory-items/1/add-stock?qty=5"
 # across the databases (PGFE)
 curl -s -X POST $B/orders -H 'Content-Type: application/json' \
