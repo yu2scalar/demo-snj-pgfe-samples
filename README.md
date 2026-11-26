@@ -292,6 +292,23 @@ local/local.sh down               # removes the containers
 (mode 600, not in git). It passes the license to the container as environment variables and does not
 write it to any file.
 
+## On Oracle
+
+The same sample runs on one Oracle database (19c or later), where the three namespaces are three
+schemas. The application's SQL quotes every name (`"customer"."customers"`), so the same statements work
+through ScalarDB Native JDBC on Oracle and through the PostgreSQL Frontend.
+
+1. A DBA-level user (on Amazon RDS for Oracle, the master user) and `sqlplus` (Oracle Instant Client).
+2. `cp setup/oracle/db-oracle.env.example setup/oracle/db-oracle.env`, fill it in, then
+   `setup/oracle/setup-db-oracle.sh`. It creates the schemas and tables with quoted lower-case names
+   (`schema/oracle/tables.sql`), puts in the sample data, imports the tables into ScalarDB and runs SNJ's
+   setup, as `setup/setup-db.sh` does. It ends with `setup-db-oracle OK`.
+3. Add the database to ScalarDB Cluster with `cluster/multi-storage-oracle.properties.example`: three
+   storages with the same contact point, and `jdbc.isolation_level=SERIALIZABLE` (Oracle refuses
+   REPEATABLE READ). Restart the Cluster.
+4. In `application-local.properties`, the three SNJ URLs are the same Oracle URL,
+   `jdbc:scalardb-native:oracle:thin:@//<host>:1521/<service>`. Then step 4 as above.
+
 ## Notes
 
 - When the same row is updated from both sides at once, the PGFE transactions are usually the ones
@@ -308,4 +325,5 @@ write it to any file.
 
   See SNJ's documentation, "Adding a table to ScalarDB while applications run".
 - Tested with ScalarDB Cluster 3.20.1 (standalone, in docker), ScalarDB Native JDBC 3.20.0, the
-  Schema Loader 3.20.0 and PostgreSQL 16.
+  Schema Loader 3.20.0 and PostgreSQL 16. The Oracle setup and ScalarDB Native JDBC on Oracle were tested
+  with Oracle Database Free 23 (in docker).

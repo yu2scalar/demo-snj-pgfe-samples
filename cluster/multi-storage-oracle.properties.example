@@ -1,0 +1,67 @@
+# Oracle version of multi-storage.properties.example.
+# What to add to the ScalarDB Cluster node's properties (scalardb-cluster-node.properties; with Helm,
+# scalardbCluster.scalardbClusterNodeProperties in the custom values) for this sample, then restart
+# the Cluster (with Helm: helm upgrade with the changed values). The Cluster must also have the
+# PostgreSQL Frontend on (scalar.db.postgres.enabled=true) and its license, as for any use of it.
+#
+# Oracle (setup/oracle/setup-db-oracle.sh): the three namespaces are three schemas in one Oracle
+# database. They stay three storages of ScalarDB's multi-storage, as with PostgreSQL, all with the same
+# contact point, so that the namespace mapping is the same. Replace <...>. ${env:...} reads an environment variable of the node.
+
+# --- If the Cluster already uses multi-storage: add the three names to its list, e.g.
+#       scalar.db.multi_storage.storages=<existing>,customer,inventory,ordering
+#     add the three mappings to its namespace_mapping, and keep its default_storage and its coordinator.
+# --- If the Cluster uses one storage (scalar.db.storage=jdbc ...): change to multi-storage, keep the
+#     existing database as one more storage (its settings under scalar.db.multi_storage.storages.<name>.*),
+#     map its namespaces and the coordinator to it, and make it the default_storage. Then the coordinator
+#     stays where it was.
+# The lines below are for a Cluster used by this sample alone (the coordinator in the ordering storage).
+
+scalar.db.storage=multi-storage
+scalar.db.multi_storage.storages=customer,inventory,ordering
+
+scalar.db.multi_storage.storages.customer.storage=jdbc
+scalar.db.multi_storage.storages.customer.contact_points=jdbc:oracle:thin:@//<oracle-host>:1521/<service>
+scalar.db.multi_storage.storages.customer.username=<user>
+scalar.db.multi_storage.storages.customer.password=${env:DB_PASSWORD_ORACLE}
+
+scalar.db.multi_storage.storages.inventory.storage=jdbc
+scalar.db.multi_storage.storages.inventory.contact_points=jdbc:oracle:thin:@//<oracle-host>:1521/<service>
+scalar.db.multi_storage.storages.inventory.username=<user>
+scalar.db.multi_storage.storages.inventory.password=${env:DB_PASSWORD_ORACLE}
+
+scalar.db.multi_storage.storages.ordering.storage=jdbc
+scalar.db.multi_storage.storages.ordering.contact_points=jdbc:oracle:thin:@//<oracle-host>:1521/<service>
+scalar.db.multi_storage.storages.ordering.username=<user>
+scalar.db.multi_storage.storages.ordering.password=${env:DB_PASSWORD_ORACLE}
+
+# The isolation level of ScalarDB's own connections to each database. With
+# scalar.db.consensus_commit.isolation_level=READ_COMMITTED (below), it is SERIALIZABLE on Oracle,
+# which refuses REPEATABLE_READ (ORA-17030).
+# The value depends on the isolation level and on the database: see "Isolation levels" in ScalarDB Native
+# JDBC's docs, https://github.com/scalar-labs/scalardb-native-jdbc/blob/main/docs/transactions.md#isolation-levels
+# It is set for each storage, so that it does not change the Cluster's other storages.
+scalar.db.multi_storage.storages.customer.jdbc.isolation_level=SERIALIZABLE
+scalar.db.multi_storage.storages.inventory.jdbc.isolation_level=SERIALIZABLE
+scalar.db.multi_storage.storages.ordering.jdbc.isolation_level=SERIALIZABLE
+
+# The sample reads orders by customer and statements by order (not by their whole primary key):
+# scans across partitions, with a filter and an order.
+scalar.db.multi_storage.storages.customer.cross_partition_scan.enabled=true
+scalar.db.multi_storage.storages.customer.cross_partition_scan.filtering.enabled=true
+scalar.db.multi_storage.storages.customer.cross_partition_scan.ordering.enabled=true
+scalar.db.multi_storage.storages.inventory.cross_partition_scan.enabled=true
+scalar.db.multi_storage.storages.inventory.cross_partition_scan.filtering.enabled=true
+scalar.db.multi_storage.storages.inventory.cross_partition_scan.ordering.enabled=true
+scalar.db.multi_storage.storages.ordering.cross_partition_scan.enabled=true
+scalar.db.multi_storage.storages.ordering.cross_partition_scan.filtering.enabled=true
+scalar.db.multi_storage.storages.ordering.cross_partition_scan.ordering.enabled=true
+
+scalar.db.multi_storage.namespace_mapping=customer:customer,inventory:inventory,ordering:ordering,coordinator:ordering
+scalar.db.multi_storage.default_storage=ordering
+
+# ScalarDB's transactions in READ COMMITTED, the level the sample's connections use. ScalarDB Native
+# JDBC requires the same level on both sides. This setting is for the whole Cluster, so it applies to
+# other applications on the same Cluster too. If you change it, change jdbc.isolation_level above to match.
+scalar.db.transaction_manager=consensus-commit
+scalar.db.consensus_commit.isolation_level=READ_COMMITTED

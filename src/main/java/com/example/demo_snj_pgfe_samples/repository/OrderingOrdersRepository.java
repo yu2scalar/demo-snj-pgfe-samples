@@ -12,8 +12,8 @@ import org.springframework.jdbc.core.RowMapper;
  * get of a missing row 9700, update / delete of a missing row 9100.
  */
 public class OrderingOrdersRepository {
-    private static final String TABLE = OrderingOrders.NAMESPACE + "." + OrderingOrders.TABLE;
-    private static final String COLUMNS = "order_id, customer_id, created_at, status, total_amount";
+    private static final String TABLE = "\"" + OrderingOrders.NAMESPACE + "\".\"" + OrderingOrders.TABLE + "\"";
+    private static final String COLUMNS = "\"order_id\", \"customer_id\", \"created_at\", \"status\", \"total_amount\"";
     private static final RowMapper<OrderingOrders> ROW_MAPPER = (rs, rowNum) -> OrderingOrders.builder()
         .orderId(rs.getString(OrderingOrders.ORDER_ID))
         .customerId(rs.getInt(OrderingOrders.CUSTOMER_ID))
@@ -40,12 +40,12 @@ public class OrderingOrdersRepository {
 
     // Get Record by Primary Key
     public OrderingOrders getOrderingOrders(OrderingOrders orders) {
-        return getOne("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE order_id = ?", orders);
+        return getOne("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE \"order_id\" = ?", orders);
     }
 
     // Get Record by Primary Key and lock it until the end of the transaction
     public OrderingOrders getOrderingOrdersForUpdate(OrderingOrders orders) {
-        return getOne("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE order_id = ? FOR UPDATE", orders);
+        return getOne("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE \"order_id\" = ? FOR UPDATE", orders);
     }
 
     private OrderingOrders getOne(String sql, OrderingOrders orders) {
@@ -82,13 +82,13 @@ public class OrderingOrdersRepository {
     }
 
     private int updateRow(OrderingOrders orders) {
-        return jdbcTemplate.update("UPDATE " + TABLE + " SET customer_id = ?, created_at = ?, status = ?, total_amount = ? WHERE order_id = ?",
+        return jdbcTemplate.update("UPDATE " + TABLE + " SET \"customer_id\" = ?, \"created_at\" = ?, \"status\" = ?, \"total_amount\" = ? WHERE \"order_id\" = ?",
             orders.getCustomerId(), orders.getCreatedAt(), orders.getStatus(), orders.getTotalAmount(), orders.getOrderId());
     }
 
     // Delete Record (if exists)
     public void deleteOrderingOrders(OrderingOrders orders) {
-        int rows = jdbcTemplate.update("DELETE FROM " + TABLE + " WHERE order_id = ?", orders.getOrderId());
+        int rows = jdbcTemplate.update("DELETE FROM " + TABLE + " WHERE \"order_id\" = ?", orders.getOrderId());
         if (rows == 0) {
             throw new CustomException("Delete condition not met: no record in OrderingOrders", 9100);
         }
@@ -102,13 +102,13 @@ public class OrderingOrdersRepository {
 
     // Scan Records by Primary Key
     public List<OrderingOrders> getOrderingOrdersListByPk(OrderingOrders orders) {
-        return jdbcTemplate.query("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE order_id = ? FETCH FIRST ? ROWS ONLY",
+        return jdbcTemplate.query("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE \"order_id\" = ? FETCH FIRST ? ROWS ONLY",
             ROW_MAPPER, orders.getOrderId(), scanLimit);
     }
 
     // All orders of a customer (index on customer_id; no limit, as the ScalarDB version)
     public List<OrderingOrders> getOrderingOrdersListByCustomerId(int customerId) {
-        return jdbcTemplate.query("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE customer_id = ?",
+        return jdbcTemplate.query("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE \"customer_id\" = ?",
             ROW_MAPPER, customerId);
     }
 

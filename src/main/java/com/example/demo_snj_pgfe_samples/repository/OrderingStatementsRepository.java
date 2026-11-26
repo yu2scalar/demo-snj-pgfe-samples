@@ -12,8 +12,8 @@ import org.springframework.jdbc.core.RowMapper;
  * ScalarDB version: get of a missing row 9700, update / delete of a missing row 9100.
  */
 public class OrderingStatementsRepository {
-    private static final String TABLE = OrderingStatements.NAMESPACE + "." + OrderingStatements.TABLE;
-    private static final String COLUMNS = "order_id, line_no, item_id, qty, unit_price";
+    private static final String TABLE = "\"" + OrderingStatements.NAMESPACE + "\".\"" + OrderingStatements.TABLE + "\"";
+    private static final String COLUMNS = "\"order_id\", \"line_no\", \"item_id\", \"qty\", \"unit_price\"";
     private static final RowMapper<OrderingStatements> ROW_MAPPER = (rs, rowNum) -> OrderingStatements.builder()
         .orderId(rs.getString(OrderingStatements.ORDER_ID))
         .lineNo(rs.getInt(OrderingStatements.LINE_NO))
@@ -41,7 +41,7 @@ public class OrderingStatementsRepository {
     // Get Record by Primary Key
     public OrderingStatements getOrderingStatements(OrderingStatements statements) {
         List<OrderingStatements> result = jdbcTemplate.query(
-            "SELECT " + COLUMNS + " FROM " + TABLE + " WHERE order_id = ? AND line_no = ?",
+            "SELECT " + COLUMNS + " FROM " + TABLE + " WHERE \"order_id\" = ? AND \"line_no\" = ?",
             ROW_MAPPER, statements.getOrderId(), statements.getLineNo());
         if (result.isEmpty()) {
             throw new CustomException("No record found in OrderingStatements", 9700);
@@ -75,13 +75,13 @@ public class OrderingStatementsRepository {
     }
 
     private int updateRow(OrderingStatements statements) {
-        return jdbcTemplate.update("UPDATE " + TABLE + " SET item_id = ?, qty = ?, unit_price = ? WHERE order_id = ? AND line_no = ?",
+        return jdbcTemplate.update("UPDATE " + TABLE + " SET \"item_id\" = ?, \"qty\" = ?, \"unit_price\" = ? WHERE \"order_id\" = ? AND \"line_no\" = ?",
             statements.getItemId(), statements.getQty(), statements.getUnitPrice(), statements.getOrderId(), statements.getLineNo());
     }
 
     // Delete Record (if exists)
     public void deleteOrderingStatements(OrderingStatements statements) {
-        int rows = jdbcTemplate.update("DELETE FROM " + TABLE + " WHERE order_id = ? AND line_no = ?",
+        int rows = jdbcTemplate.update("DELETE FROM " + TABLE + " WHERE \"order_id\" = ? AND \"line_no\" = ?",
             statements.getOrderId(), statements.getLineNo());
         if (rows == 0) {
             throw new CustomException("Delete condition not met: no record in OrderingStatements", 9100);
@@ -96,7 +96,7 @@ public class OrderingStatementsRepository {
 
     // Scan Records by Partition Key (order_id), in line_no order as the ScalarDB clustering key
     public List<OrderingStatements> getOrderingStatementsListByPk(OrderingStatements statements) {
-        return jdbcTemplate.query("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE order_id = ? ORDER BY line_no FETCH FIRST ? ROWS ONLY",
+        return jdbcTemplate.query("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE \"order_id\" = ? ORDER BY \"line_no\" FETCH FIRST ? ROWS ONLY",
             ROW_MAPPER, statements.getOrderId(), scanLimit);
     }
 

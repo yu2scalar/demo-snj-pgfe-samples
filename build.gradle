@@ -31,6 +31,8 @@ dependencies {
     runtimeOnly 'org.postgresql:postgresql'
     // jdbc:scalardb-native:postgresql:... - ScalarDB Native JDBC, which wraps the PostgreSQL driver
     runtimeOnly 'com.scalar-labs:scalardb-native-jdbc:3.20.0'
+    // jdbc:scalardb-native:oracle:thin:... - the same driver on Oracle wraps Oracle's own driver
+    runtimeOnly 'com.oracle.database.jdbc:ojdbc11'
 }
 
 tasks.named('test') {

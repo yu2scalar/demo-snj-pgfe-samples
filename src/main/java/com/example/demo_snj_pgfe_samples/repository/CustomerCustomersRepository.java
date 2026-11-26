@@ -12,8 +12,8 @@ import org.springframework.jdbc.core.RowMapper;
  * get of a missing row 9700, update / delete of a missing row 9100.
  */
 public class CustomerCustomersRepository {
-    private static final String TABLE = CustomerCustomers.NAMESPACE + "." + CustomerCustomers.TABLE;
-    private static final String COLUMNS = "customer_id, name, credit_limit, credit_total";
+    private static final String TABLE = "\"" + CustomerCustomers.NAMESPACE + "\".\"" + CustomerCustomers.TABLE + "\"";
+    private static final String COLUMNS = "\"customer_id\", \"name\", \"credit_limit\", \"credit_total\"";
     private static final RowMapper<CustomerCustomers> ROW_MAPPER = (rs, rowNum) -> CustomerCustomers.builder()
         .customerId(rs.getInt(CustomerCustomers.CUSTOMER_ID))
         .name(rs.getString(CustomerCustomers.NAME))
@@ -39,12 +39,12 @@ public class CustomerCustomersRepository {
 
     // Get Record by Primary Key
     public CustomerCustomers getCustomerCustomers(CustomerCustomers customers) {
-        return getOne("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE customer_id = ?", customers);
+        return getOne("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE \"customer_id\" = ?", customers);
     }
 
     // Get Record by Primary Key and lock it until the end of the transaction
     public CustomerCustomers getCustomerCustomersForUpdate(CustomerCustomers customers) {
-        return getOne("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE customer_id = ? FOR UPDATE", customers);
+        return getOne("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE \"customer_id\" = ? FOR UPDATE", customers);
     }
 
     private CustomerCustomers getOne(String sql, CustomerCustomers customers) {
@@ -81,13 +81,13 @@ public class CustomerCustomersRepository {
     }
 
     private int updateRow(CustomerCustomers customers) {
-        return jdbcTemplate.update("UPDATE " + TABLE + " SET name = ?, credit_limit = ?, credit_total = ? WHERE customer_id = ?",
+        return jdbcTemplate.update("UPDATE " + TABLE + " SET \"name\" = ?, \"credit_limit\" = ?, \"credit_total\" = ? WHERE \"customer_id\" = ?",
             customers.getName(), customers.getCreditLimit(), customers.getCreditTotal(), customers.getCustomerId());
     }
 
     // Delete Record (if exists)
     public void deleteCustomerCustomers(CustomerCustomers customers) {
-        int rows = jdbcTemplate.update("DELETE FROM " + TABLE + " WHERE customer_id = ?", customers.getCustomerId());
+        int rows = jdbcTemplate.update("DELETE FROM " + TABLE + " WHERE \"customer_id\" = ?", customers.getCustomerId());
         if (rows == 0) {
             throw new CustomException("Delete condition not met: no record in CustomerCustomers", 9100);
         }
@@ -101,7 +101,7 @@ public class CustomerCustomersRepository {
 
     // Scan Records by Primary Key
     public List<CustomerCustomers> getCustomerCustomersListByPk(CustomerCustomers customers) {
-        return jdbcTemplate.query("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE customer_id = ? FETCH FIRST ? ROWS ONLY",
+        return jdbcTemplate.query("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE \"customer_id\" = ? FETCH FIRST ? ROWS ONLY",
             ROW_MAPPER, customers.getCustomerId(), scanLimit);
     }
 }

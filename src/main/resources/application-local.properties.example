@@ -19,3 +19,8 @@ app.datasource.ordering.password=<password>
 app.datasource.pgfe.jdbc-url=jdbc:postgresql://<cluster-host>:5439/ordering
 app.datasource.pgfe.username=<user>
 app.datasource.pgfe.password=<password>
+
+# On Oracle (README "On Oracle"): the three namespaces are schemas in one database, so the three ScalarDB
+# Native JDBC URLs are the same, e.g.
+#   app.datasource.customer.jdbc-url=jdbc:scalardb-native:oracle:thin:@//<oracle-host>:1521/<service>
+# The PostgreSQL Frontend's URL does not change: the Cluster reaches Oracle.

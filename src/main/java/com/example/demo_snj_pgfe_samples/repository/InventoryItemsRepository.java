@@ -12,8 +12,8 @@ import org.springframework.jdbc.core.RowMapper;
  * get of a missing row 9700, update / delete of a missing row 9100.
  */
 public class InventoryItemsRepository {
-    private static final String TABLE = InventoryItems.NAMESPACE + "." + InventoryItems.TABLE;
-    private static final String COLUMNS = "item_id, name, price, stock";
+    private static final String TABLE = "\"" + InventoryItems.NAMESPACE + "\".\"" + InventoryItems.TABLE + "\"";
+    private static final String COLUMNS = "\"item_id\", \"name\", \"price\", \"stock\"";
     private static final RowMapper<InventoryItems> ROW_MAPPER = (rs, rowNum) -> InventoryItems.builder()
         .itemId(rs.getInt(InventoryItems.ITEM_ID))
         .name(rs.getString(InventoryItems.NAME))
@@ -39,12 +39,12 @@ public class InventoryItemsRepository {
 
     // Get Record by Primary Key
     public InventoryItems getInventoryItems(InventoryItems items) {
-        return getOne("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE item_id = ?", items);
+        return getOne("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE \"item_id\" = ?", items);
     }
 
     // Get Record by Primary Key and lock it until the end of the transaction
     public InventoryItems getInventoryItemsForUpdate(InventoryItems items) {
-        return getOne("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE item_id = ? FOR UPDATE", items);
+        return getOne("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE \"item_id\" = ? FOR UPDATE", items);
     }
 
     private InventoryItems getOne(String sql, InventoryItems items) {
@@ -81,13 +81,13 @@ public class InventoryItemsRepository {
     }
 
     private int updateRow(InventoryItems items) {
-        return jdbcTemplate.update("UPDATE " + TABLE + " SET name = ?, price = ?, stock = ? WHERE item_id = ?",
+        return jdbcTemplate.update("UPDATE " + TABLE + " SET \"name\" = ?, \"price\" = ?, \"stock\" = ? WHERE \"item_id\" = ?",
             items.getName(), items.getPrice(), items.getStock(), items.getItemId());
     }
 
     // Delete Record (if exists)
     public void deleteInventoryItems(InventoryItems items) {
-        int rows = jdbcTemplate.update("DELETE FROM " + TABLE + " WHERE item_id = ?", items.getItemId());
+        int rows = jdbcTemplate.update("DELETE FROM " + TABLE + " WHERE \"item_id\" = ?", items.getItemId());
         if (rows == 0) {
             throw new CustomException("Delete condition not met: no record in InventoryItems", 9100);
         }
@@ -101,7 +101,7 @@ public class InventoryItemsRepository {
 
     // Scan Records by Primary Key
     public List<InventoryItems> getInventoryItemsListByPk(InventoryItems items) {
-        return jdbcTemplate.query("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE item_id = ? FETCH FIRST ? ROWS ONLY",
+        return jdbcTemplate.query("SELECT " + COLUMNS + " FROM " + TABLE + " WHERE \"item_id\" = ? FETCH FIRST ? ROWS ONLY",
             ROW_MAPPER, items.getItemId(), scanLimit);
     }
 
